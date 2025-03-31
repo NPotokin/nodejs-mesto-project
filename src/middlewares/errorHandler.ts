@@ -3,7 +3,7 @@ import { constants } from 'http2';
 
 const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
   let statusCode: number = constants.HTTP_STATUS_INTERNAL_SERVER_ERROR;
-  let message = 'Произошла ошибка на сервере';
+  let message = 'На сервере произошла ошибка';
 
   if (err.name === 'ValidationError') {
     statusCode = constants.HTTP_STATUS_BAD_REQUEST;
