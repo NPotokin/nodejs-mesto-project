@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import urlPattern from '../utils/url.pattern';
 
 interface ICard extends Document {
   name: string;
@@ -18,6 +19,10 @@ const cardSchema = new Schema<ICard>({
   link: {
     type: String,
     required: true,
+    validate: {
+      validator: (v: string) => urlPattern.test(v),
+      message: 'Некорректный URL для изображения',
+    },
   },
   owner: {
     type: Schema.Types.ObjectId,

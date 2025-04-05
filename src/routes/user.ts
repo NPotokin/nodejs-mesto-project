@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import {
-  createUser, findAllUsers, findUserById, updateUser, updateUserAvatar,
+  findAllUsers, findUserById, getMe, updateUser, updateUserAvatar,
 } from '../controllers/user';
+import { validateFindUserById, validateUpdateUser, validateUpdateUserAvatar } from '../requestValidators/userValidator';
 
 const usersRouter = Router();
-usersRouter.post('/users', createUser);
-usersRouter.get('/users/:id', findUserById);
+usersRouter.get('/users/me', getMe);
+usersRouter.get('/users/:id', validateFindUserById, findUserById);
 usersRouter.get('/users', findAllUsers);
-usersRouter.patch('/users/me', updateUser);
-usersRouter.patch('/users/me/avatar', updateUserAvatar);
+usersRouter.patch('/users/me', validateUpdateUser, updateUser);
+usersRouter.patch('/users/me/avatar', validateUpdateUserAvatar, updateUserAvatar);
 
 export default usersRouter;

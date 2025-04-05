@@ -1,48 +1,46 @@
 import { NextFunction, Request, Response } from 'express';
 import { constants } from 'http2';
 import Card from '../models/card';
+import { ForbiddenError, NotFoundError } from '../errors/customErrors';
 
-export const findAllCards = async (_req: Request, res: Response, next: NextFunction):Promise<void> => {
+export const findAllCards = async (
+  _req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
     const cards = await Card.find({});
     if (!cards || cards.length === 0) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Карточки не найдены',
-      })
+      return next(new NotFoundError('Карточки не найдены'));
     }
-     res.status(constants.HTTP_STATUS_OK).send(cards);
+
+    res.status(constants.HTTP_STATUS_OK).send(cards);
   } catch (error) {
-     return next(error);
+    return next(error);
   }
 };
 
-export const deleteCardById = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+export const deleteCardById = async (
+  req: Request, res: Response, next: NextFunction):Promise<void> => {
   const cardId = req.params.id;
+  const userId = req.user!._id;
+
   try {
-    const card = await Card.findByIdAndDelete(cardId);
+    const card = await Card.findById(cardId);
+
     if (!card) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Карточка не найдена'
-      })
+      return next(new NotFoundError('Карточка не найдена'));
+    } if (card.owner.toString() !== userId) {
+      return next(new ForbiddenError('Нельзя удалить чужую карточку'));
     }
-    res.status(constants.HTTP_STATUS_OK).send(card);
+    await Card.findByIdAndDelete(card);
+
+    res.status(constants.HTTP_STATUS_OK).send({ message: 'Карточка удалена' });
   } catch (error) {
     return next(error);
   }
 };
 
 export const createCard = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
-  const owner = res.locals.user?._id;
+  const owner = req.user!._id;
   const { name, link } = req.body;
-
-  if (!name || !link || !owner) {
-    return next({
-      status: constants.HTTP_STATUS_BAD_REQUEST,
-      message: 'Все поля (name, link, owner) обязательны!',
-    })
-  }
 
   try {
     const card = await Card.create({ name, link, owner });
@@ -55,16 +53,10 @@ export const createCard = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const addLikeToCard = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
-  const owner = res.locals.user?._id;
+export const addLikeToCard = async (
+  req: Request, res: Response, next: NextFunction):Promise<void> => {
+  const owner = req.user!._id;
   const { cardId } = req.params;
-
-  if (!cardId || !owner) {
-    return next({
-      status: constants.HTTP_STATUS_BAD_REQUEST,
-      message: 'Все поля (cardId, owner) обязательны!',
-    })
-  }
 
   try {
     const likedCard = await Card.findByIdAndUpdate(
@@ -74,10 +66,7 @@ export const addLikeToCard = async (req: Request, res: Response, next: NextFunct
     );
 
     if (!likedCard) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Карточка не найдена',
-      })
+      return next(new NotFoundError('Карточка не найдена'));
     }
 
     res.status(constants.HTTP_STATUS_OK).json({
@@ -89,16 +78,10 @@ export const addLikeToCard = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const removeLikeFromCard = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
-  const owner = res.locals.user?._id;
+export const removeLikeFromCard = async (
+  req: Request, res: Response, next: NextFunction):Promise<void> => {
+  const owner = req.user!._id;
   const { cardId } = req.params;
-
-  if (!cardId || !owner) {
-    return next({
-      status: constants.HTTP_STATUS_BAD_REQUEST,
-      message: 'Все поля (cardId, owner) обязательны!',
-    })
-  }
 
   try {
     const dislikedCard = await Card.findByIdAndUpdate(
@@ -108,11 +91,9 @@ export const removeLikeFromCard = async (req: Request, res: Response, next: Next
     );
 
     if (!dislikedCard) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Карточка не найдена',
-      })
+      return next(new NotFoundError('Карточка не найдена'));
     }
+
     res.status(constants.HTTP_STATUS_OK).json({
       message: 'Лайк удалён',
       card: dislikedCard,

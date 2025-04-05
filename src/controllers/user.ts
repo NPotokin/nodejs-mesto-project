@@ -1,33 +1,35 @@
 import { NextFunction, Request, Response } from 'express';
 import { constants } from 'http2';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import User from '../models/user';
+import 'dotenv/config';
+import { NotFoundError, UnauthorizedError } from '../errors/customErrors';
 
+const secretKey = process.env.JWT_KEY as string;
 export const createUser = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
-  const { name, about, avatar } = req.body;
+  const {
+    name, about, avatar, email, password,
+  } = req.body;
 
-  if (!name || !about || !avatar) {
-    return next({
-      status: constants.HTTP_STATUS_BAD_REQUEST,
-      message: 'Все поля (name, about, avatar) обязательны!',
-    })
-  }
+  const hash = await bcrypt.hash(password, 10);
 
   try {
-    const newUser = await User.create({ name, about, avatar });
+    const newUser = await User.create({
+      name, about, avatar, email, password: hash,
+    });
     res.status(constants.HTTP_STATUS_CREATED).json(newUser);
   } catch (error) {
     return next(error);
   }
 };
 
-export const findAllUsers = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+export const findAllUsers = async (
+  _req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
     const users = await User.find({});
     if (!users || users.length === 0) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Пользователи не найдены',
-      })
+      return next(new NotFoundError('Пользователи не найдены'));
     }
     res.status(constants.HTTP_STATUS_OK).send(users);
   } catch (error) {
@@ -35,15 +37,13 @@ export const findAllUsers = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-export const findUserById = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+export const findUserById = async (
+  req: Request, res: Response, next: NextFunction):Promise<void> => {
   const userId = req.params.id;
   try {
     const user = await User.findById(userId);
     if (!user) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Пользователь не найден',
-      })
+      return next(new NotFoundError('Пользователь не найден'));
     }
     res.status(constants.HTTP_STATUS_OK).send(user);
   } catch (error) {
@@ -52,15 +52,8 @@ export const findUserById = async (req: Request, res: Response, next: NextFuncti
 };
 
 export const updateUser = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
-  const userId = res.locals.user._id;
+  const userId = req.user!._id;
   const { name, about } = req.body;
-
-  if (!name || !about) {
-    return next({
-      status: constants.HTTP_STATUS_BAD_REQUEST,
-      message: 'Поля name и about обязательны',
-    })
-  }
 
   try {
     const user = await User.findByIdAndUpdate(
@@ -70,10 +63,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
     );
 
     if (!user) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Пользователь не найден',
-      })
+      return next(new NotFoundError('Пользователь не найден'));
     }
     res.status(constants.HTTP_STATUS_OK).send(user);
   } catch (error) {
@@ -81,16 +71,10 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const updateUserAvatar = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
-  const userId = res.locals.user._id;
+export const updateUserAvatar = async (
+  req: Request, res: Response, next: NextFunction):Promise<void> => {
+  const userId = req.user!._id;
   const { avatar } = req.body;
-
-  if (!avatar) {
-    return next({
-      status: constants.HTTP_STATUS_BAD_REQUEST,
-      message: 'Поле avatar обязательно',
-    })
-  }
 
   try {
     const user = await User.findByIdAndUpdate(
@@ -100,10 +84,54 @@ export const updateUserAvatar = async (req: Request, res: Response, next: NextFu
     );
 
     if (!user) {
-      return next({
-        status: constants.HTTP_STATUS_NOT_FOUND,
-        message: 'Пользователь не найден',
-      })
+      return next(new NotFoundError('Пользователь не найден'));
+    }
+    res.status(constants.HTTP_STATUS_OK).send(user);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const login = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user) {
+      return next(new UnauthorizedError('Неправильные почта или пароль'));
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return next(new UnauthorizedError('Неправильные почта или пароль'));
+    }
+
+    const token = jwt.sign(
+      { _id: user._id },
+      secretKey,
+      { expiresIn: '7d' },
+    );
+
+    res.cookie('jwt', token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(constants.HTTP_STATUS_OK).send({ message: 'Добро пожаловать!' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getMe = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+  const userId = req.user!._id;
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new NotFoundError('Пользователь не найден'));
     }
     res.status(constants.HTTP_STATUS_OK).send(user);
   } catch (error) {
