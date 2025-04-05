@@ -11,9 +11,8 @@ export const validateCreateUser = celebrate({
     email: Joi.string().required().messages({
       'any.required': 'Поле email обязательно',
     }),
-    password: Joi.string().min(8).required().messages({
+    password: Joi.string().required().messages({
       'any.required': 'Поле password обязательно',
-      'string.min': 'Пароль должен быть не менее 8 символов',
     }),
   }),
 });

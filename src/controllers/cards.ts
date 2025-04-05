@@ -7,9 +7,6 @@ export const findAllCards = async (
   _req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
     const cards = await Card.find({});
-    if (!cards || cards.length === 0) {
-      return next(new NotFoundError('Карточки не найдены'));
-    }
 
     res.status(constants.HTTP_STATUS_OK).send(cards);
   } catch (error) {

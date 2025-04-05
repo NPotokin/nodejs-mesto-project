@@ -12,9 +12,8 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     name, about, avatar, email, password,
   } = req.body;
 
-  const hash = await bcrypt.hash(password, 10);
-
   try {
+    const hash = await bcrypt.hash(password, 10);
     const newUser = await User.create({
       name, about, avatar, email, password: hash,
     });
@@ -28,9 +27,7 @@ export const findAllUsers = async (
   _req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
     const users = await User.find({});
-    if (!users || users.length === 0) {
-      return next(new NotFoundError('Пользователи не найдены'));
-    }
+
     res.status(constants.HTTP_STATUS_OK).send(users);
   } catch (error) {
     return next(error);
@@ -62,9 +59,6 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
       { new: true, runValidators: true },
     );
 
-    if (!user) {
-      return next(new NotFoundError('Пользователь не найден'));
-    }
     res.status(constants.HTTP_STATUS_OK).send(user);
   } catch (error) {
     return next(error);
@@ -83,9 +77,6 @@ export const updateUserAvatar = async (
       { new: true, runValidators: true },
     );
 
-    if (!user) {
-      return next(new NotFoundError('Пользователь не найден'));
-    }
     res.status(constants.HTTP_STATUS_OK).send(user);
   } catch (error) {
     return next(error);
@@ -130,9 +121,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction):Pro
   const userId = req.user!._id;
   try {
     const user = await User.findById(userId);
-    if (!user) {
-      return next(new NotFoundError('Пользователь не найден'));
-    }
+
     res.status(constants.HTTP_STATUS_OK).send(user);
   } catch (error) {
     return next(error);
